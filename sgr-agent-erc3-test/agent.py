@@ -161,7 +161,7 @@ Rules must be compact RFC-style, ok to use pseudo code for compactness. They wil
 
         messages = [{ "role": "system", "content": prompt}]
 
-        distilled = llm.query(messages, DistillWikiRules)
+        distilled = llm.query(messages, DistillWikiRules, "gpt-5.1")
         loc.write_text(distilled.model_dump_json(indent=2))
 
     else:

@@ -22,11 +22,11 @@ class MyLLM:
         self.client = OpenAI()
 
 
-    def query(self, messages: List, response_format: Type[T]) -> T:
+    def query(self, messages: List, response_format: Type[T], model: str = None) -> T:
 
         started = time.time()
-        resp = self.client.beta.chat.completions.parse(messages=messages, model=self.model, response_format=response_format, max_tokens=self.max_tokens)
+        resp = self.client.beta.chat.completions.parse(messages=messages, model=model or self.model, response_format=response_format, max_completion_tokens=self.max_tokens)
 
-        self.api.log_llm(task_id=self.task.task_id, model=self.model,duration_sec=time.time() - started, usage=resp.usage)
+        self.api.log_llm(task_id=self.task.task_id, model=model or self.model,duration_sec=time.time() - started, usage=resp.usage)
 
         return resp.choices[0].message.parsed
