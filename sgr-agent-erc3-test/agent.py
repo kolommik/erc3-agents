@@ -50,11 +50,10 @@ CLI_BLUE = "\x1B[34m"
 CLI_CLR = "\x1B[0m"
 
 
-
 def distill_rules(model: str, api: Erc3Client) -> str:
 
-    who = api.who_am_i()
-    context_id = who.wiki_sha1
+    about = api.who_am_i()
+    context_id = about.wiki_sha1
 
     loc = Path(f"context_{context_id}.json")
 
@@ -70,16 +69,12 @@ def distill_rules(model: str, api: Erc3Client) -> str:
         rules: List[Rule]
 
     if  not loc.exists():
-
-
-
-
         schema = json.dumps(NextStep.model_json_schema())
         prompt = f"""
-    Carefully review the wiki below and identify most important security/scoping/data rules that will be highly relevant for the agent or user that are automating APIs of this company.
+Carefully review the wiki below and identify most important security/scoping/data rules that will be highly relevant for the agent or user that are automating APIs of this company.
 
-    Rules must be compact RFC-style, ok to use pseudo code for compactness. They will be used by an agent that operates following APIs: {schema}
-    """.strip()
+Rules must be compact RFC-style, ok to use pseudo code for compactness. They will be used by an agent that operates following APIs: {schema}
+""".strip()
 
 
         # pull wiki
@@ -99,7 +94,6 @@ def distill_rules(model: str, api: Erc3Client) -> str:
     else:
         distilled = DistillWikiRules.model_validate_json(loc.read_text())
 
-    about = api.who_am_i()
     prompt = f"""You are AI Chatbot automating {distilled.company_name}
 
 Use available tools to execute task from the current user.
@@ -123,12 +117,21 @@ When task is done or can't be done - Req_ProvideAgentResponse.
 
     # append at the end to keep rules in context cache
 
+    prompt += f"# Current context (trust it)\nDate:{about.today}"
+
     if about.is_public:
-        prompt += "\n# /whoami Current user is GUEST (/whoami)"
+        prompt += "\nCurrent user is GUEST"
     else:
         employee = api.get_employee(about.current_user).employee
+        employee.skills = []
+        employee.wills = []
         dump = employee.model_dump_json()
-        prompt += f"\n# /whoami Current user is {employee.name}\n{dump}"
+        prompt += f"\n# Current user is {employee.name}:\n{dump}"
+
+        # grab projects
+
+
+
 
         # dump project brief
     return prompt
@@ -194,10 +197,13 @@ def run_agent(model: str, api: ERC3, task: TaskInfo):
             result = erc_client.dispatch(job.function)
             txt = result.model_dump_json(exclude_none=True, exclude_unset=True)
             print(f"{CLI_GREEN}OUT{CLI_CLR}: {txt}")
+            txt = "DONE: " + txt
         except ApiException as e:
             txt = e.detail
             # print to console as ascii red
             print(f"{CLI_RED}ERR: {e.api_error.error}{CLI_CLR}")
+
+            txt = "ERROR: " + txt
 
             # if SGR wants to finish, then quit loop
         if isinstance(job.function, dev.Req_ProvideAgentResponse):
